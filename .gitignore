@@ -1,0 +1,14 @@
+# Secrets
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Scraper logs
+scraper/logs/
+
+# Database dumps are shared through GitHub Releases, not commits
+*.sql.gz
+*.dump
