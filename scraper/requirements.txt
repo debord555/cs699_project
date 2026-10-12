@@ -1,2 +1,11 @@
 psycopg[binary]==3.3.6
 python-dotenv==1.2.4
+PyYAML==6.0.3
+requests==2.34.2
+feedparser==6.0.14
+langdetect==1.0.9
+trafilatura==2.3.1
+lxml_html_clean==0.4.5
+APScheduler==3.11.3
+googlenewsdecoder==0.1.7
+selectolax==0.4.13
