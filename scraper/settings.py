@@ -1,0 +1,7 @@
+USER_AGENT = "NewsRadarBot/0.1 (student project; +https://github.com/debord555/cs699_project)"
+
+REQUEST_TIMEOUT = 20
+DOMAIN_DELAY_SECONDS = 3
+FETCH_BATCH_SIZE = 50
+MAX_FETCH_ATTEMPTS = 3
+MAX_FEED_FAILURES = 10
