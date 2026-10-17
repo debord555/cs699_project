@@ -52,6 +52,28 @@ CREATE TABLE articles (
     error           TEXT
 );
 
+-- One row per mentioned location
+CREATE TABLE locations (
+    id              BIGSERIAL PRIMARY KEY,
+    location_name   TEXT,
+    latitude        DOUBLE PRECISION CHECK (latitude BETWEEN -90 AND 90),
+    longitude       DOUBLE PRECISION CHECK (longitude BETWEEN -180 AND 180)
+);
+
+-- For many to many mapping between articles and locations
+CREATE TABLE article_location_map (
+    article_id      BIGINT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    location_id     BIGINT NOT NULL REFERENCES locations(id),
+    mention_order   INT,
+    PRIMARY KEY (article_id, location_id)
+);
+
 CREATE INDEX idx_articles_status ON articles (status);
 CREATE INDEX idx_articles_published_at ON articles (published_at);
 CREATE INDEX idx_articles_content_hash ON articles (content_hash);
+CREATE INDEX idx_alm_location ON article_location_map (location_id);
+
+-- Case-insensitive name lookup: WHERE lower(location_name) = lower('Guwahati')
+CREATE INDEX idx_locations_name_lower ON locations (lower(location_name));
+-- Spatial lookup: bounding box (point(longitude, latitude) <@ box(...)) and nearest-first (ORDER BY ... <-> point(...))
+CREATE INDEX idx_locations_point ON locations USING GIST (point(longitude, latitude));
