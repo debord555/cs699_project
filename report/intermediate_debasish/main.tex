@@ -1,0 +1,136 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{parskip}
+\usepackage[hidelinks]{hyperref}
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\renewcommand{\arraystretch}{1.3}
+
+\title{NewsRadar: Intermediate Project Update\\[4pt]
+  \large A Geographical Visualization of News Around the Globe}
+\author{Debasish Bordoloi\\CS 699 (Software Lab)}
+\date{October 17, 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Project Description}
+
+NewsRadar is a CS 699 (Software Lab) team project: a web application that
+scrapes news articles, extracts the places each article mentions, and plots
+them on an interactive map. It is built as a three-stage Python pipeline
+(scraping, location and topic mining, then a FastAPI backend with a
+React + Leaflet map) around a shared PostgreSQL + PostGIS database. The
+current version targets Indian news sources and geocodes places within India.
+
+The main features of our application will be:
+
+\begin{itemize}
+    \item News articles collected from multiple sources will be mapped to the locations they discuss, allowing users to explore what is happening across different regions of the world.
+    \item News events from around the world will be represented as interactive points (blips) on a global map. Selecting a point will allow users to view the relevant news articles associated with that location.
+    \item News websites will be continuously scraped to collect and update news data from multiple sources.
+    \item Multiple articles reporting on the same real-world event will be identified and clustered together, preventing duplicate representation of the same event on the map.
+    \item News will be categorized into different categories, including but not limited to Business, Sports, Military, Disasters, Crime, Environment, Technology, and Opportunities.
+    \item Users will be able to filter news based on time and date ranges, allowing them to view recent or historical events.
+    \item Users will be able to zoom into any geographical region and explore the news and events occurring in that area.
+    \item The platform will provide links to the original news articles, allowing users to access the complete information from the respective news sources.
+    \item Users will be able to search for news using text-based queries. The system will identify relevant news articles from across the world and display the corresponding events geographically on the map. For example, a search for "earthquake" would show relevant earthquake-related news from different locations around the world.
+\end{itemize}
+
+\section{My Contributions}
+
+I worked on four areas, from the map frontend down to geocoding.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}p{0.2\textwidth}L@{}}
+\toprule
+\textbf{Area} & \textbf{What I did} \\
+\midrule
+Frontend &
+  Created the \texttt{frontend/} app from the React + Vite template with
+  ESLint, added \texttt{leaflet} and \texttt{react-leaflet}, and wrote
+  \texttt{App.jsx}: a full-screen map with OpenStreetMap tiles, scroll-wheel
+  zoom and a minimum zoom level. Article markers will be drawn on this base. \\
+Infrastructure &
+  Made \texttt{docker-compose.yml} work with Podman by using the fully
+  qualified image name \texttt{docker.io/postgis/postgis:16-3.4}. Podman does
+  not default to Docker Hub, so the short name failed; Docker users are
+  unaffected. \\
+Database &
+  Designed the tables that store locations and link them to articles
+  (Section~\ref{sec:schema}). \\
+Geocoding &
+  Wrote \texttt{geocoding/geocode.py}, which turns place names into
+  coordinates and caches them in the database (Section~\ref{sec:geocoding}). \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Location Schema}
+\label{sec:schema}
+
+I added two tables and three indexes to \texttt{db/init/01\_schema.sql}, so
+each place is stored once and linked to every article that mentions it.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}p{0.36\textwidth}L@{}}
+\toprule
+\textbf{Object} & \textbf{Purpose} \\
+\midrule
+\texttt{locations} table &
+  One row per distinct place: \texttt{location\_name}, \texttt{latitude},
+  \texttt{longitude}. CHECK constraints keep coordinates in valid ranges. \\
+\texttt{article\_location\_map} table &
+  Many-to-many link between articles and locations.
+  \texttt{mention\_order} records which place an article is mainly about.
+  Deleting an article deletes its links. \\
+Index on \texttt{lower(location\_name)} &
+  Case-insensitive name lookup, which lets the table act as the geocoding
+  cache. \\
+GiST index on \texttt{point(longitude, latitude)} &
+  Bounding-box queries for the current map view, and nearest-first queries. \\
+Index on \texttt{article\_location\_map}\allowbreak\texttt{(location\_id)} &
+  Fetching all articles about one place. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Geocoding Module}
+\label{sec:geocoding}
+
+\texttt{geocoding/geocode.py} turns place names into coordinates using
+OpenStreetMap's Nominatim service through \texttt{geopy}, with the
+\texttt{locations} table acting as a cache.
+
+\texttt{fetch\_coordinates(name, hint)} searches within India only. The
+optional hint, such as a state, picks between places with the same name: for
+example, ``Aurangabad'' with the hint ``Bihar'' returns the town in Bihar, not
+the one in Maharashtra.
+
+\texttt{get\_or\_create\_location(conn, name, hint)} checks the
+\texttt{locations} table first and calls Nominatim only for names it has not
+seen. New places are inserted and their \texttt{id} is returned, ready to link
+through \texttt{article\_location\_map}. Names Nominatim cannot find are
+stored with NULL coordinates so they are not looked up again, while network
+errors are raised instead of stored.
+
+The module follows Nominatim's usage policy: at most 1 request per second, an
+identifying User-Agent, and cached results. It also runs from the command
+line:
+
+\begin{center}
+\texttt{python geocoding/geocode.py Guwahati Majuli -{}-hint Assam}
+\end{center}
+
+\textbf{Testing.} I checked the lookups against the live Nominatim service with
+Guwahati, Aurangabad with the Bihar hint, and a made-up name. The full insert
+into the database has not been run yet.
+
+\end{document}
