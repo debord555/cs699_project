@@ -1,0 +1,237 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[table]{xcolor}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{heading}{HTML}{1F4E79}
+\definecolor{rowhead}{HTML}{E6EDF5}
+\definecolor{codebg}{HTML}{F5F7FA}
+
+\titleformat{\section}{\Large\bfseries\color{heading}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.6em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[L]{\small\color{gray}NewsRadar: Mid-Term Progress Report}
+\fancyfoot[R]{\small\color{gray}\thepage}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+\setlist{itemsep=0.2em, topsep=0.2em}
+\renewcommand{\arraystretch}{1.35}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newcommand{\head}[1]{\textbf{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{gray!40},
+  breaklines=true, columns=fullflexible,
+  xleftmargin=0.5em, xrightmargin=0.5em
+}
+
+\begin{document}
+
+{\LARGE\bfseries\color{heading} NewsRadar: Mid-Term Progress Report}\par
+\vspace{0.3em}
+\textbf{Name:} Deepjyoti Kakoti \quad
+\textbf{Roll No.:} \rule{3cm}{0.4pt}\par
+\textbf{Branch:} \code{DEEPJYOTI} $\cdot$
+\textbf{Repository:} \href{https://github.com/debord555/cs699_project}{github.com/debord555/cs699\_project}\par
+\textbf{Module:} AI step (location extraction with a local language model)
+
+% ---------------------------------------------------------------------------
+\section{Project summary}
+
+\textbf{NewsRadar -- A Geographical Visualization of News Around the Globe} is a
+web platform that places news on a world map. Articles are collected
+continuously from many news websites, matched to the places they talk about,
+and shown as clickable points (``blips'') on an interactive map. Clicking a
+point lists the articles for that place, with links to the original stories.
+
+\begin{tabularx}{\textwidth}{>{\bfseries}p{4.2cm} L}
+\toprule
+\rowcolor{rowhead} \head{Feature} & \head{What the user gets} \\
+\midrule
+Map of news & Every news event appears as a point on a world map, at the place it is about. \\
+Continuous collection & News websites are scraped regularly, so the map stays up to date. \\
+No duplicate events & Several articles about the same real event are grouped into one point. \\
+Categories & News is tagged as Business, Sports, Military, Disasters, Crime, Environment, Technology, Opportunities and more. \\
+Time filter & Users can choose a date range to see recent or older events. \\
+Zoom & Users can zoom into any region and explore the news there. \\
+Text search & A search such as ``earthquake'' shows matching news from around the world on the map. \\
+Original sources & Every article links back to the website that published it. \\
+\bottomrule
+\end{tabularx}
+
+% ---------------------------------------------------------------------------
+\section{My part: the AI step}
+
+To put an article on the map, the system has to know \emph{where} the story
+happens. Articles arrive as plain text, so a language model reads each one and
+lists the places it mentions, with their latitude and longitude. My work in
+this phase was to:
+
+\begin{enumerate}
+  \item set up a language model that runs on our own computer, with one script; and
+  \item write the worker that sends each article to the model and stores the places it finds in the database.
+\end{enumerate}
+
+The worker sits between the scraper, which saves articles, and the map, which
+reads places from the database.
+
+% ---------------------------------------------------------------------------
+\section{Technology choices}
+
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3.2cm} p{4.3cm} L}
+\toprule
+\rowcolor{rowhead} \head{Choice} & \head{What it is} & \head{Why it was chosen} \\
+\midrule
+Lemonade Server & A free program that runs language models on a local PC & No cost per request, no internet needed, and article text never leaves our machine. It offers the same interface (API) as OpenAI, so the code would work with a hosted model too. \\
+Qwen3-8B (Q4\_K\_M) & An open language model with 8 billion parameters, compressed to about 5\,GB & Small enough to run on a normal GPU, yet good at reading text and returning structured answers such as JSON. \\
+Python & A programming language & Same language as the rest of the project; ready-made libraries for databases (\code{psycopg}) and web requests (\code{requests}). \\
+PowerShell & The Windows command shell & Lets the whole model setup run as one script on our Windows machines. \\
+\bottomrule
+\end{tabularx}
+
+% ---------------------------------------------------------------------------
+\section{Setting up the model}
+
+The script \code{scripts/setup\_llm.ps1} prepares the model in one command:
+
+\begin{lstlisting}
+powershell -ExecutionPolicy Bypass -File scripts\setup_llm.ps1
+\end{lstlisting}
+
+It runs these steps in order and stops with a clear message if one fails:
+
+\begin{enumerate}
+  \item \textbf{Find Lemonade.} Looks for the \code{lemonade} program, first on the system path and then in its default install folder.
+  \item \textbf{Start the server.} If the server is not already running, starts it in the background and waits up to 60 seconds for its health check to pass.
+  \item \textbf{Download the model.} Downloads Qwen3-8B (about 5\,GB) only if it is not already on the machine.
+  \item \textbf{Load the model} into memory.
+  \item \textbf{Smoke test.} Asks the model to reply with ``OK'' to confirm the whole chain works.
+  \item \textbf{Print the settings} (\code{LLM\_BASE\_URL}, \code{LLM\_MODEL}) to copy into the private \code{.env} file.
+\end{enumerate}
+
+The script is safe to run again: steps that are already done are skipped. The
+model name and port can be changed with the \code{-Model} and \code{-Port}
+options. I also added the two LLM settings to \code{.env.example}, so every
+teammate knows which values to set.
+
+% ---------------------------------------------------------------------------
+\section{The location extractor}\label{sec:locate}
+
+\subsection{How it works}
+
+\code{llm/locate.py} runs as a loop that never stops:
+
+\begin{enumerate}
+  \item Look for one article that is waiting to be processed: status \code{ready} and full text present. If there is none, wait 2 seconds and look again.
+  \item Send the article's text to the model and ask for the places it mentions.
+  \item For each place, check whether it is already in the \code{locations} table (ignoring upper/lower case). If not, add it with its coordinates.
+  \item Link the article to each place in the \code{article\_location\_map} table, keeping the order in which the places were mentioned.
+  \item Mark the article \code{llm\_done}. If the model call failed, mark it \code{llm\_failed} and save the error message instead.
+  \item Go back to step 1.
+\end{enumerate}
+
+\subsection{What the model is asked}
+
+The model is told to reply with \emph{only} a JSON list, so the program can read
+the answer directly:
+
+\begin{lstlisting}
+[{"name": "Guwahati", "latitude": 26.14, "longitude": 91.73},
+ {"name": "Assam",    "latitude": 26.20, "longitude": 92.94}]
+\end{lstlisting}
+
+The temperature is set to 0, so the same article always gives the same answer.
+The prompt ends with \code{/no\_think}, which turns off Qwen3's long
+``thinking'' output and makes replies much faster.
+
+\subsection{Key design decisions}
+
+\begin{tabularx}{\textwidth}{>{\bfseries}p{5.2cm} L}
+\toprule
+\rowcolor{rowhead} \head{Decision} & \head{Reason} \\
+\midrule
+Use the article \code{status} column to find work & An article with no places would never get a row in \code{article\_location\_map}, so checking that table would pick the same article again forever. The status (\code{ready} $\rightarrow$ \code{llm\_done} / \code{llm\_failed}) marks every article as finished exactly once. \\
+One database transaction per article & An article's places and its new status are saved together. If the program crashes halfway, nothing is saved and the article is simply tried again. \\
+Lock the article while working on it (\code{FOR UPDATE SKIP LOCKED}) & Several copies of the worker can run side by side without two of them taking the same article. \\
+Clean the model's answer before saving & Small models sometimes add extra text or repeat a place. The worker keeps only the JSON list, drops repeated names, and discards coordinates outside the valid range (latitude $-90$ to $90$, longitude $-180$ to $180$). \\
+Reuse existing places & ``Guwahati'' and ``guwahati'' point to the same row, so the map shows one point per place rather than many. \\
+Cut very long articles to 12{,}000 characters & Keeps each request within what the model can read at once. \\
+Failed articles are marked, not retried forever & One bad article cannot block the queue, and the saved error explains what went wrong. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Settings}
+
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{4.5cm} p{3cm} L}
+\toprule
+\rowcolor{rowhead} \head{\sffamily Setting} & \head{Value} & \head{Meaning} \\
+\midrule
+LLM\_BASE\_URL & \code{127.0.0.1:13305} & Address of the local model server \\
+LLM\_MODEL & Qwen3-8B & Model to use \\
+LLM\_TIMEOUT & 300 seconds & Longest wait for one reply from the model \\
+LLM\_MAX\_BODY\_CHARS & 12{,}000 & Longest article text sent to the model \\
+LOCATE\_IDLE\_SECONDS & 2 seconds & Pause when there is no work \\
+\bottomrule
+\end{tabularx}
+
+% ---------------------------------------------------------------------------
+\section{Description of the files}
+
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{4.6cm} L}
+\toprule
+\rowcolor{rowhead} \head{\sffamily File} & \head{Purpose} \\
+\midrule
+scripts/setup\_llm.ps1 & Installs, starts, loads and tests the local language model with one command. \\
+.env.example & Template settings; I added \code{LLM\_BASE\_URL} and \code{LLM\_MODEL}. \\
+llm/locate.py & The location extractor described in Section~\ref{sec:locate}. \\
+llm/db.py & Opens a connection to the database using the private \code{.env} settings. \\
+llm/settings.py & Timeouts and limits for the extractor. \\
+llm/requirements.txt & The three Python libraries the extractor needs, with exact versions. \\
+\bottomrule
+\end{tabularx}
+
+To run the extractor:
+
+\begin{lstlisting}
+cd llm
+pip install -r requirements.txt
+python locate.py
+\end{lstlisting}
+
+% ---------------------------------------------------------------------------
+\section{Outcome of this phase}
+
+\begin{itemize}
+  \item A local language model that any teammate can set up and test with one command.
+  \item A working location extractor that turns article text into places with coordinates and links them to the article in the database.
+  \item Safe for several workers at once, and never leaves half-saved results.
+  \item All work is on GitHub (branch \code{DEEPJYOTI}).
+\end{itemize}
+
+% ---------------------------------------------------------------------------
+\section{Next steps}
+
+\begin{itemize}
+  \item Run the extractor on real articles from the scraper and measure how often the places and coordinates are correct.
+  \item Extend the same step to tag each article with a news category.
+\end{itemize}
+
+\end{document}
