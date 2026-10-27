@@ -47,7 +47,16 @@ def extract_places(body):
     return names
 
 
-def get_or_create_location(conn, name, lat, lon):
+def next_article(conn):
+    # SKIP LOCKED lets several workers run side by side without grabbing the same article
+    return conn.execute(
+        "SELECT id, body FROM articles "
+        "WHERE status = 'ready' AND body IS NOT NULL "
+        "ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED"
+    ).fetchone()
+
+
+def get_or_create_location(conn, name):
     row = conn.execute(
         "SELECT id FROM locations WHERE lower(location_name) = lower(%s) ORDER BY id LIMIT 1",
         (name,),
@@ -55,8 +64,8 @@ def get_or_create_location(conn, name, lat, lon):
     if row:
         return row[0]
     return conn.execute(
-        "INSERT INTO locations (location_name, latitude, longitude) VALUES (%s, %s, %s) RETURNING id",
-        (name, lat, lon),
+        "INSERT INTO locations (location_name) VALUES (%s) RETURNING id",
+        (name,),
     ).fetchone()[0]
 
 
@@ -69,7 +78,7 @@ def process_one(conn):
         article_id, body = article
 
         try:
-            locations = ask_llm(body)
+            locations = extract_places(body)
         except Exception as e:
             conn.execute(
                 "UPDATE articles SET status = 'llm_failed', error = %s WHERE id = %s",
@@ -78,8 +87,8 @@ def process_one(conn):
             print(f"Article {article_id}: failed ({e})")
             return True
 
-        for order, (name, lat, lon) in enumerate(locations, start=1):
-            location_id = get_or_create_location(conn, name, lat, lon)
+        for order, name in enumerate(locations, start=1):
+            location_id = get_or_create_location(conn, name)
             conn.execute(
                 "INSERT INTO article_location_map (article_id, location_id, mention_order) "
                 "VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
@@ -90,7 +99,7 @@ def process_one(conn):
             "UPDATE articles SET status = 'llm_done', error = NULL WHERE id = %s",
             (article_id,),
         )
-        print(f"Article {article_id}: {len(locations)} location(s) {[l[0] for l in locations]}")
+        print(f"Article {article_id}: {len(locations)} location(s) {locations}")
         return True
 
 
