@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="torch")
 import spacy
 
 from db import get_connection
-from settings import LLM_MAX_BODY_CHARS, LLM_MAX_TOKENS, LLM_TIMEOUT, LOCATE_IDLE_SECONDS
+from settings import LOCATE_IDLE_SECONDS, MAX_BODY_CHARS
 
 # GPE: cities, districts, states, countries; LOC: rivers, regions; FAC: stadiums, markets
 PLACE_LABELS = {"GPE", "LOC", "FAC"}
@@ -34,7 +34,7 @@ def extract_places(body):
     """Return the place names mentioned in body, in order of first mention."""
     names = []
     seen = set()
-    for ent in nlp(body[:LLM_MAX_BODY_CHARS]).ents:
+    for ent in nlp(body[:MAX_BODY_CHARS]).ents:
         if ent.label_ not in PLACE_LABELS:
             continue
         name = re.sub(r"('s|-based)$", "", ent.text.strip())
