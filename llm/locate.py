@@ -20,7 +20,7 @@ import requests
 from dotenv import load_dotenv
 
 from db import get_connection
-from settings import LLM_MAX_BODY_CHARS, LLM_TIMEOUT, LOCATE_IDLE_SECONDS
+from settings import LLM_MAX_BODY_CHARS, LLM_MAX_TOKENS, LLM_TIMEOUT, LOCATE_IDLE_SECONDS
 
 load_dotenv()
 
@@ -55,6 +55,8 @@ def ask_llm(body):
             "model": LLM_MODEL,
             "messages": [{"role": "user", "content": PROMPT.format(body=body[:LLM_MAX_BODY_CHARS])}],
             "temperature": 0,
+            # stops runaway repetition loops instead of waiting for LLM_TIMEOUT
+            "max_tokens": LLM_MAX_TOKENS,
         },
         timeout=LLM_TIMEOUT,
     )
