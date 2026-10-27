@@ -57,7 +57,8 @@ CREATE TABLE locations (
     id              BIGSERIAL PRIMARY KEY,
     location_name   TEXT,
     latitude        DOUBLE PRECISION CHECK (latitude BETWEEN -90 AND 90),
-    longitude       DOUBLE PRECISION CHECK (longitude BETWEEN -180 AND 180)
+    longitude       DOUBLE PRECISION CHECK (longitude BETWEEN -180 AND 180),
+    not_found       BOOLEAN DEFAULT FALSE
 );
 
 -- For many to many mapping between articles and locations
