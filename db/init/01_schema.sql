@@ -48,6 +48,7 @@ CREATE TABLE articles (
     content_hash    CHAR(64),                        -- same text on many sites = same hash
     is_wire         BOOLEAN NOT NULL DEFAULT FALSE,  -- PTI / IANS / ANI copy
     status          TEXT NOT NULL DEFAULT 'new',     -- new -> ready -> (LLM step) llm_done / llm_failed
+    category_status TEXT NOT NULL DEFAULT 'new',     -- new -> done / failed (category worker)
     fetch_attempts  INT NOT NULL DEFAULT 0,
     error           TEXT
 );
@@ -69,7 +70,28 @@ CREATE TABLE article_location_map (
     PRIMARY KEY (article_id, location_id)
 );
 
+-- One row per article type (crime, politics, ...)
+CREATE TABLE categories (
+    id      SERIAL PRIMARY KEY,
+    name    TEXT UNIQUE NOT NULL
+);
+
+INSERT INTO categories (name) VALUES
+    ('Politics'), ('Crime'), ('Business & Finance'), ('Education'), ('Health'),
+    ('Sports'), ('Entertainment'), ('Science & Technology'), ('Environment & Weather'),
+    ('Disasters & Accidents'), ('Agriculture'), ('Infrastructure'), ('International'), ('Other');
+
+-- For many to many mapping between articles and categories (an article can have several)
+CREATE TABLE article_category_map (
+    article_id      BIGINT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    category_id     INT NOT NULL REFERENCES categories(id),
+    score           REAL,                            -- classifier confidence, NULL if from a feed/tag hint
+    PRIMARY KEY (article_id, category_id)
+);
+
 CREATE INDEX idx_articles_status ON articles (status);
+CREATE INDEX idx_articles_category_status ON articles (category_status);
+CREATE INDEX idx_acm_category ON article_category_map (category_id);
 CREATE INDEX idx_articles_published_at ON articles (published_at);
 CREATE INDEX idx_articles_content_hash ON articles (content_hash);
 CREATE INDEX idx_alm_location ON article_location_map (location_id);
