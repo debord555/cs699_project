@@ -1,12 +1,26 @@
-import React from 'react';
 import { useState, useRef } from 'react';
 import { MapContainer, TileLayer, useMapEvents, CircleMarker, Popup } from 'react-leaflet';
+import Sidebar from './Sidebar';
 
 // Critical: Leaflet tile styling will break without this import
 import 'leaflet/dist/leaflet.css';
 
-function NewsPins() {
-  const [pins, setPins] = useState([]);
+// Returns the ids of the articles on screen, closest to the map center first.
+// The backend returns some pins just outside the screen, so those are skipped.
+function getVisibleIds(pins, map) {
+  const bounds = map.getBounds();
+  const center = map.getCenter();
+
+  const onScreen = pins
+    .filter(([, lat, lon]) => bounds.contains([lat, lon]))
+    .map(([id, lat, lon]) => ({ id, distance: center.distanceTo([lat, lon]) }));
+  onScreen.sort((a, b) => a.distance - b.distance);
+
+  // An article can have several pins; a Set keeps only its first (closest) one
+  return [...new Set(onScreen.map((pin) => pin.id))];
+}
+
+function NewsPins({ pins, onPinsLoaded }) {
   const controller = useRef(null);
 
   const fetchPins = async (map) => {
@@ -25,7 +39,10 @@ function NewsPins() {
     });
     try {
       const res = await fetch(`/api/get_news_ids?${params}`, { signal: controller.current.signal });
-      if (res.ok) setPins(await res.json());
+      if (res.ok) {
+        const newPins = await res.json();
+        onPinsLoaded(newPins, getVisibleIds(newPins, map));
+      }
     } catch (e) {
       if (e.name !== 'AbortError') throw e;
     }
@@ -46,7 +63,6 @@ function NewsPins() {
       <Popup>Article #{id}</Popup>
     </CircleMarker>
   ));
-
 }
 
 export default function App() {
@@ -54,22 +70,34 @@ export default function App() {
   const defaultCenter = [20, 0];
   const defaultZoom = 2;
 
+  const [pins, setPins] = useState([]);
+  const [visibleIds, setVisibleIds] = useState([]);
+
   return (
-    <div style={{ height: '100vh', width: '100vw' }}>
-      <MapContainer
-        center={defaultCenter}
-        zoom={defaultZoom}
-        minZoom={2}
-        scrollWheelZoom={true}
-        style={{ height: '100%', width: '100%' }}
-      >
-        {/* Base map tile layer from OpenStreetMap */}
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <NewsPins />
-      </MapContainer>
+    <div style={{ height: '100vh', width: '100vw', display: 'flex' }}>
+      <div style={{ flex: 1, minWidth: 0, height: '100%' }}>
+        <MapContainer
+          center={defaultCenter}
+          zoom={defaultZoom}
+          minZoom={2}
+          scrollWheelZoom={true}
+          style={{ height: '100%', width: '100%' }}
+        >
+          {/* Base map tile layer from OpenStreetMap */}
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <NewsPins
+            pins={pins}
+            onPinsLoaded={(newPins, ids) => {
+              setPins(newPins);
+              setVisibleIds(ids);
+            }}
+          />
+        </MapContainer>
+      </div>
+      <Sidebar ids={visibleIds} />
     </div>
   );
 }

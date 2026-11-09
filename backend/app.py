@@ -58,3 +58,11 @@ def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom
             """, {"cell": cell, "lat_min": lat_min, "lat_max": lat_max,
                   "lon_min": lon_min, "lon_max": lon_max, "per_cell": per_cell}).fetchall()
 
+@app.get("/api/get_news")
+def getNewsByIds(id: int):
+    with pool.connection() as conn:
+        return conn.execute("""
+            SELECT a.id, a.title, a.url, a.published_at, a.image_url
+            FROM articles a
+            WHERE a.id = %(ids)s;
+            """, {"ids": id}).fetchall()
