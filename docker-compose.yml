@@ -40,6 +40,21 @@ services:
     depends_on:
       db:
         condition: service_healthy
+  categorize:
+    build: ./llm                        # same image as llm, different worker
+    command: ["python", "categorize.py"]
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - hf-cache:/root/.cache/huggingface   # keep the downloaded model between restarts
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
   geocoding:
     build: ./geocoding
     environment:
@@ -54,3 +69,4 @@ services:
         condition: service_healthy
 volumes:
   pgdata:
+  hf-cache:

@@ -1,12 +1,13 @@
-"""Article category worker.
+"""Article category worker (CPU).
 
 Loop:
-  1. Pick one uncategorized article (category_status 'new', body present).
-  2. Score its title + summary + start of body against every category with a
-     zero-shot NLI model (runs on the GPU when there is one).
-  3. Link every category scoring at least CATEGORY_THRESHOLD in
-     `article_category_map`; if none does, link 'Other'.
-  4. Mark the article 'done' (or 'failed' on error).
+  1. Pick a batch of uncategorized articles (category_status 'new', body present).
+  2. Embed title + summary + start of body with a small sentence-embedding model.
+  3. Compare each article with every category's example headlines
+     (category_anchors.py) and keep the closest category, plus any other within
+     CATEGORY_MARGIN of it. If even the closest is below CATEGORY_MIN_SCORE,
+     link 'Other' instead.
+  4. Mark the articles 'done' (or 'failed' on error).
   5. If there was nothing to process, sleep and try again.
 
 Usage:  python categorize.py
@@ -15,102 +16,112 @@ Usage:  python categorize.py
 import time
 
 import torch
-from transformers import pipeline
+from transformers import AutoModel, AutoTokenizer
 
+from category_anchors import ANCHORS
 from db import get_connection
 from settings import (
     CATEGORIZE_IDLE_SECONDS,
+    CATEGORY_BATCH_SIZE,
+    CATEGORY_MARGIN,
+    CATEGORY_MAX_LABELS,
+    CATEGORY_MIN_SCORE,
     CATEGORY_MODEL,
     CATEGORY_TEXT_CHARS,
-    CATEGORY_THRESHOLD,
-    GPU_MEMORY_GB,
 )
 
 FALLBACK = "Other"
 
-if torch.cuda.is_available():
-    total_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
-    torch.cuda.set_per_process_memory_fraction(min(1.0, GPU_MEMORY_GB / total_gb))
-    classifier = pipeline("zero-shot-classification", model=CATEGORY_MODEL, device=0, dtype=torch.float16)
-else:
-    print("No CUDA GPU found, running on CPU (slow)")
-    classifier = pipeline("zero-shot-classification", model=CATEGORY_MODEL)
+torch.set_grad_enabled(False)
+tokenizer = AutoTokenizer.from_pretrained(CATEGORY_MODEL)
+model = AutoModel.from_pretrained(CATEGORY_MODEL).eval()  # stays on the CPU
+
+
+def embed(texts, max_tokens):
+    """Return one unit-length vector per text (bge models use the [CLS] token)."""
+    batch = tokenizer(texts, padding=True, truncation=True, max_length=max_tokens, return_tensors="pt")
+    vectors = model(**batch).last_hidden_state[:, 0]
+    return torch.nn.functional.normalize(vectors, dim=-1)
 
 
 def load_categories(conn):
-    """Return {name: id} for every row in `categories`."""
-    return dict(conn.execute("SELECT name, id FROM categories").fetchall())
+    """Return ({name: id} for every category, [names with examples], matrix of their vectors)."""
+    ids = dict(conn.execute("SELECT name, id FROM categories").fetchall())
+    missing = [name for name in ids if name != FALLBACK and name not in ANCHORS]
+    if missing:
+        print(f"No example headlines for {missing}; they will never be assigned")
+    names = [name for name in ANCHORS if name in ids]
+    centroids = torch.stack([embed(ANCHORS[name], 64).mean(dim=0) for name in names])
+    return ids, names, torch.nn.functional.normalize(centroids, dim=-1)
 
 
-def classify(title, summary, body, labels):
-    """Return [(label, score)] for labels scoring at least the threshold, best first."""
-    text = "\n".join(part for part in (title, summary, (body or "")[:CATEGORY_TEXT_CHARS]) if part)
-    result = classifier(
-        text,
-        candidate_labels=labels,
-        hypothesis_template="This news article is about {}.",
-        multi_label=True,
-    )
-    return [
-        (label, score)
-        for label, score in zip(result["labels"], result["scores"])
-        if score >= CATEGORY_THRESHOLD
-    ]
+def pick(scores, names):
+    """Return [(name, score)] for one article's row of similarity scores, best first."""
+    ranked = sorted(zip(names, scores.tolist()), key=lambda pair: pair[1], reverse=True)
+    best = ranked[0][1]
+    if best < CATEGORY_MIN_SCORE:
+        return [(FALLBACK, None)]
+    return [(name, score) for name, score in ranked[:CATEGORY_MAX_LABELS] if score >= best - CATEGORY_MARGIN]
 
 
-def next_article(conn):
-    # SKIP LOCKED lets several workers run side by side without grabbing the same article
+def next_batch(conn):
+    # SKIP LOCKED lets several workers run side by side without grabbing the same articles
     return conn.execute(
         "SELECT id, title, summary, body FROM articles "
         "WHERE category_status = 'new' AND body IS NOT NULL "
-        "ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED"
-    ).fetchone()
+        "ORDER BY id LIMIT %s FOR UPDATE SKIP LOCKED",
+        (CATEGORY_BATCH_SIZE,),
+    ).fetchall()
 
 
-def process_one(conn, categories):
-    """Process one article. Returns False if there was nothing to do."""
+def process_batch(conn, ids, names, centroids):
+    """Process one batch. Returns False if there was nothing to do."""
     with conn.transaction():
-        article = next_article(conn)
-        if article is None:
+        articles = next_batch(conn)
+        if not articles:
             return False
-        article_id, title, summary, body = article
+        article_ids = [article[0] for article in articles]
 
         try:
-            labels = [name for name in categories if name != FALLBACK]
-            matches = classify(title, summary, body, labels)
+            texts = [
+                "\n".join(part for part in (title, summary, body[:CATEGORY_TEXT_CHARS]) if part)
+                for _, title, summary, body in articles
+            ]
+            scores = embed(texts, 256) @ centroids.T
         except Exception as e:
             conn.execute(
-                "UPDATE articles SET category_status = 'failed', error = %s WHERE id = %s",
-                (str(e)[:1000], article_id),
+                "UPDATE articles SET category_status = 'failed', error = %s WHERE id = ANY(%s)",
+                (str(e)[:1000], article_ids),
             )
-            print(f"Article {article_id}: failed ({e})")
+            print(f"Articles {article_ids[0]}-{article_ids[-1]}: failed ({e})")
             return True
 
-        if not matches:
-            matches = [(FALLBACK, None)]
+        rows = []
+        for article_id, row in zip(article_ids, scores):
+            matches = pick(row, names)
+            rows += [(article_id, ids[name], score) for name, score in matches]
+            print(f"Article {article_id}: " + ", ".join(
+                name if score is None else f"{name} ({score:.2f})" for name, score in matches
+            ))
 
-        for name, score in matches:
-            conn.execute(
+        with conn.cursor() as cur:
+            cur.executemany(
                 "INSERT INTO article_category_map (article_id, category_id, score) "
                 "VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
-                (article_id, categories[name], score),
+                rows,
             )
-
         conn.execute(
-            "UPDATE articles SET category_status = 'done' WHERE id = %s",
-            (article_id,),
+            "UPDATE articles SET category_status = 'done' WHERE id = ANY(%s)",
+            (article_ids,),
         )
-        print(f"Article {article_id}: " + ", ".join(
-            name if score is None else f"{name} ({score:.2f})" for name, score in matches
-        ))
         return True
 
 
 def main():
     with get_connection() as conn:
-        categories = load_categories(conn)
+        ids, names, centroids = load_categories(conn)
         while True:
-            if not process_one(conn, categories):
+            if not process_batch(conn, ids, names, centroids):
                 time.sleep(CATEGORIZE_IDLE_SECONDS)
 
 
