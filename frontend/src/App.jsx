@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { MapContainer, TileLayer, useMapEvents, CircleMarker, Popup } from 'react-leaflet';
 import Sidebar from './Sidebar';
+import TimeControl from './TimeControl';
 
 // Critical: Leaflet tile styling will break without this import
 import 'leaflet/dist/leaflet.css';
@@ -20,7 +21,7 @@ function getVisibleIds(pins, map) {
   return [...new Set(onScreen.map((pin) => pin.id))];
 }
 
-function NewsPins({ pins, onPinsLoaded }) {
+function NewsPins({ pins, date, onPinsLoaded }) {
   const controller = useRef(null);
 
   const fetchPins = async (map) => {
@@ -37,6 +38,10 @@ function NewsPins({ pins, onPinsLoaded }) {
       lon_max: Math.min(b.getEast(), 180),
       zoom: map.getZoom(),
     });
+    // Only show news from before the chosen date (if one is chosen)
+    if (date) {
+      params.set('before', date + 'T00:00:00Z');
+    }
     try {
       const res = await fetch(`/api/get_news_ids?${params}`, { signal: controller.current.signal });
       if (res.ok) {
@@ -52,6 +57,12 @@ function NewsPins({ pins, onPinsLoaded }) {
     moveend: () => fetchPins(map),
     load: () => fetchPins(map),
   });
+
+  // Load the pins again whenever the chosen date changes
+  useEffect(() => {
+    fetchPins(map);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
 
   return pins.map(([id, lat, lon]) => (
     <CircleMarker
@@ -72,10 +83,12 @@ export default function App() {
 
   const [pins, setPins] = useState([]);
   const [visibleIds, setVisibleIds] = useState([]);
+  // The chosen date as "YYYY-MM-DD", or "" for today
+  const [date, setDate] = useState('');
 
   return (
     <div style={{ height: '100vh', width: '100vw', display: 'flex' }}>
-      <div style={{ flex: 1, minWidth: 0, height: '100%' }}>
+      <div style={{ flex: 1, minWidth: 0, height: '100%', position: 'relative' }}>
         <MapContainer
           center={defaultCenter}
           zoom={defaultZoom}
@@ -90,12 +103,14 @@ export default function App() {
           />
           <NewsPins
             pins={pins}
+            date={date}
             onPinsLoaded={(newPins, ids) => {
               setPins(newPins);
               setVisibleIds(ids);
             }}
           />
         </MapContainer>
+        <TimeControl date={date} setDate={setDate} />
       </div>
       <Sidebar ids={visibleIds} />
     </div>

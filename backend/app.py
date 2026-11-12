@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from psycopg_pool import ConnectionPool
 import os
 import math
+from datetime import datetime, timezone
 
 def split_interval(start, end, n):
     step = (end - start) / n
@@ -32,7 +33,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/api/get_news_ids")
-def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom: int, per_cell: int = 5):
+def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom: int, per_cell: int = 5, before: datetime | None = None):
     # Cell size inferred from Leaflet's docs
     cell = 360 / 2**zoom / 4
     # Snap the box outward to cell edges so cells at the screen border are counted in full
@@ -40,6 +41,8 @@ def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom
     lon_min = math.floor(lon_min / cell) * cell
     lat_max = math.ceil(lat_max / cell) * cell
     lon_max = math.ceil(lon_max / cell) * cell
+    if before is None:
+        before = datetime.now(timezone.utc)
     with pool.connection() as conn:
         return conn.execute("""
             SELECT id, latitude, longitude FROM (
@@ -53,10 +56,12 @@ def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom
                 JOIN articles a ON a.id = al.article_id
                 WHERE l.latitude >= %(lat_min)s AND l.latitude < %(lat_max)s
                     AND l.longitude >= %(lon_min)s AND l.longitude < %(lon_max)s
+                    AND a.published_at < %(before)s
             ) t
             WHERE rn <= %(per_cell)s;
             """, {"cell": cell, "lat_min": lat_min, "lat_max": lat_max,
-                  "lon_min": lon_min, "lon_max": lon_max, "per_cell": per_cell}).fetchall()
+                  "lon_min": lon_min, "lon_max": lon_max, "per_cell": per_cell,
+                  "before": before}).fetchall()
 
 @app.get("/api/get_news")
 def getNewsByIds(id: int):
