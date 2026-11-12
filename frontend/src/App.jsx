@@ -61,12 +61,13 @@ function NewsPins({ pins, date, onPinsLoaded }) {
   // Load the pins again whenever the chosen date changes
   useEffect(() => {
     fetchPins(map);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
-  return pins.map(([id, lat, lon]) => (
+  // Each pin is [article id, lat, lon, location id]. An article can have two
+  // locations at the same spot, so the key uses the location id to stay unique.
+  return pins.map(([id, lat, lon, locationId]) => (
     <CircleMarker
-      key={`${id}-${lat}-${lon}`}
+      key={`${id}-${locationId}`}
       center={[lat, lon]}
       radius={7}
       pathOptions={{ color: 'white', weight: 1, fillColor: '#cf00ff', fillOpacity: 1.0 }}

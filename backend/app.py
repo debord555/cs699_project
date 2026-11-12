@@ -45,8 +45,8 @@ def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom
         before = datetime.now(timezone.utc)
     with pool.connection() as conn:
         return conn.execute("""
-            SELECT id, latitude, longitude FROM (
-                SELECT a.id, l.latitude, l.longitude,
+            SELECT id, latitude, longitude, location_id FROM (
+                SELECT a.id, l.latitude, l.longitude, l.id AS location_id,
                        ROW_NUMBER() OVER (
                            PARTITION BY floor(l.latitude / %(cell)s), floor(l.longitude / %(cell)s)
                            ORDER BY al.mention_order ASC, a.published_at DESC, a.id
