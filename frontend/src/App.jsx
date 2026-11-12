@@ -21,7 +21,7 @@ function getVisibleIds(pins, map) {
   return [...new Set(onScreen.map((pin) => pin.id))];
 }
 
-function NewsPins({ pins, date, onPinsLoaded }) {
+function NewsPins({ pins, date, hoveredId, onPinsLoaded }) {
   const controller = useRef(null);
 
   const fetchPins = async (map) => {
@@ -63,18 +63,36 @@ function NewsPins({ pins, date, onPinsLoaded }) {
     fetchPins(map);
   }, [date]);
 
+  // The pins of the article hovered in the sidebar
+  const hoveredPins = pins.filter((pin) => pin[0] === hoveredId);
+
   // Each pin is [article id, lat, lon, location id]. An article can have two
   // locations at the same spot, so the key uses the location id to stay unique.
-  return pins.map(([id, lat, lon, locationId]) => (
-    <CircleMarker
-      key={`${id}-${locationId}`}
-      center={[lat, lon]}
-      radius={7}
-      pathOptions={{ color: 'white', weight: 1, fillColor: '#cf00ff', fillOpacity: 1.0 }}
-    >
-      <Popup>Article #{id}</Popup>
-    </CircleMarker>
-  ));
+  return (
+    <>
+      {pins.map(([id, lat, lon, locationId]) => (
+        <CircleMarker
+          key={`${id}-${locationId}`}
+          center={[lat, lon]}
+          radius={7}
+          pathOptions={{ color: 'white', weight: 1, fillColor: '#cf00ff', fillOpacity: 1.0 }}
+        >
+          <Popup>Article #{id}</Popup>
+        </CircleMarker>
+      ))}
+
+      {/* Bigger yellow circles over the hovered article's pins. They are
+          drawn last, so they appear on top of the other pins. */}
+      {hoveredPins.map(([id, lat, lon, locationId]) => (
+        <CircleMarker
+          key={`hovered-${id}-${locationId}`}
+          center={[lat, lon]}
+          radius={11}
+          pathOptions={{ color: 'black', weight: 2, fillColor: '#ffcc00', fillOpacity: 1.0 }}
+        />
+      ))}
+    </>
+  );
 }
 
 export default function App() {
@@ -86,6 +104,8 @@ export default function App() {
   const [visibleIds, setVisibleIds] = useState([]);
   // The chosen date as "YYYY-MM-DD", or "" for today
   const [date, setDate] = useState('');
+  // The id of the article the mouse is over in the sidebar, or null
+  const [hoveredId, setHoveredId] = useState(null);
 
   return (
     <div style={{ height: '100vh', width: '100vw', display: 'flex' }}>
@@ -105,6 +125,7 @@ export default function App() {
           <NewsPins
             pins={pins}
             date={date}
+            hoveredId={hoveredId}
             onPinsLoaded={(newPins, ids) => {
               setPins(newPins);
               setVisibleIds(ids);
@@ -113,7 +134,7 @@ export default function App() {
         </MapContainer>
         <TimeControl date={date} setDate={setDate} />
       </div>
-      <Sidebar ids={visibleIds} />
+      <Sidebar ids={visibleIds} setHoveredId={setHoveredId} />
     </div>
   );
 }

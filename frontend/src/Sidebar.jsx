@@ -5,7 +5,7 @@ import './Sidebar.css';
 // components so it survives map moves and nothing is fetched twice.
 const cache = {};
 
-export default function Sidebar({ ids }) {
+export default function Sidebar({ ids, setHoveredId }) {
   const listRef = useRef(null);
 
   // The map moved or zoomed, so scroll the list back to the top
@@ -22,14 +22,14 @@ export default function Sidebar({ ids }) {
       {ids.length === 0 && <p className="sidebar-empty">No articles in this area.</p>}
       <ul className="sidebar-list" ref={listRef}>
         {ids.map((id) => (
-          <ArticleEntry key={id} id={id} listRef={listRef} />
+          <ArticleEntry key={id} id={id} listRef={listRef} setHoveredId={setHoveredId} />
         ))}
       </ul>
     </aside>
   );
 }
 
-function ArticleEntry({ id, listRef }) {
+function ArticleEntry({ id, listRef, setHoveredId }) {
   // undefined = not loaded yet, null = not found
   const [article, setArticle] = useState(cache[id]);
   const entryRef = useRef(null);
@@ -68,14 +68,27 @@ function ArticleEntry({ id, listRef }) {
   }, [id, article, listRef]);
 
   if (article === undefined) {
-    return <li ref={entryRef} className="article article-loading">Loading article #{id}…</li>;
+    return (
+      <li
+        ref={entryRef}
+        className="article article-loading"
+        onMouseEnter={() => setHoveredId(id)}
+        onMouseLeave={() => setHoveredId(null)}
+      >
+        Loading article #{id}…
+      </li>
+    );
   }
   if (article === null) {
     return <li className="article article-loading">Article #{id} not found</li>;
   }
 
   return (
-    <li className="article">
+    <li
+      className="article"
+      onMouseEnter={() => setHoveredId(id)}
+      onMouseLeave={() => setHoveredId(null)}
+    >
       <a href={article.url} target="_blank" rel="noopener noreferrer">
         {article.imageUrl && (
           <img className="article-image" src={article.imageUrl} alt="" loading="lazy" />
