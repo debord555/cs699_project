@@ -41,10 +41,12 @@ def fetch_coordinates(name):
 
 def next_location(conn):
     return conn.execute(
-        "SELECT id, location_name FROM locations "
-        "WHERE not_found IS NOT TRUE AND (latitude IS NULL OR longitude IS NULL) "
-        "ORDER BY id LIMIT 1 FOR UPDATE"
+        "SELECT l.id, l.location_name FROM locations l "
+        "WHERE l.not_found IS NOT TRUE AND (l.latitude IS NULL OR l.longitude IS NULL) "
+        "ORDER BY (SELECT COUNT(*) FROM article_location_map a WHERE a.location_id = l.id) DESC "
+        "LIMIT 1 FOR UPDATE SKIP LOCKED"
     ).fetchone()
+
 
 
 def process_one(conn):
