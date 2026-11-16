@@ -1,0 +1,224 @@
+sources:
+  - name: The Hindu
+    domain: thehindu.com
+    region_scope: national
+    feeds:
+      - url: https://www.thehindu.com/news/national/feeder/default.rss
+      - url: https://www.thehindu.com/news/national/kerala/feeder/default.rss
+        location_hint: Kerala
+      - url: https://www.thehindu.com/news/national/tamil-nadu/feeder/default.rss
+        location_hint: Tamil Nadu
+      - url: https://www.thehindu.com/news/national/karnataka/feeder/default.rss
+        location_hint: Karnataka
+      - url: https://www.thehindu.com/news/national/andhra-pradesh/feeder/default.rss
+        location_hint: Andhra Pradesh
+      - url: https://www.thehindu.com/news/national/telangana/feeder/default.rss
+        location_hint: Telangana
+      - url: https://www.thehindu.com/news/national/other-states/feeder/default.rss
+      - url: https://www.thehindu.com/news/cities/Delhi/feeder/default.rss
+        location_hint: Delhi
+      - url: https://www.thehindu.com/news/cities/kolkata/feeder/default.rss
+        location_hint: Kolkata, West Bengal
+      - url: https://www.thehindu.com/news/cities/Hyderabad/feeder/default.rss
+        location_hint: Hyderabad, Telangana
+      - url: https://www.thehindu.com/news/cities/bangalore/feeder/default.rss
+        location_hint: Bengaluru, Karnataka
+
+  - name: The Indian Express
+    domain: indianexpress.com
+    region_scope: national
+    feeds:
+      - url: https://indianexpress.com/section/india/feed/
+      - url: https://indianexpress.com/section/cities/mumbai/feed/
+        location_hint: Mumbai, Maharashtra
+      - url: https://indianexpress.com/section/cities/delhi/feed/
+        location_hint: Delhi
+      - url: https://indianexpress.com/section/cities/pune/feed/
+        location_hint: Pune, Maharashtra
+      - url: https://indianexpress.com/section/cities/chandigarh/feed/
+        location_hint: Chandigarh
+      - url: https://indianexpress.com/section/cities/lucknow/feed/
+        location_hint: Lucknow, Uttar Pradesh
+      - url: https://indianexpress.com/section/cities/ahmedabad/feed/
+        location_hint: Ahmedabad, Gujarat
+      - url: https://indianexpress.com/section/cities/kolkata/feed/
+        location_hint: Kolkata, West Bengal
+
+  - name: Hindustan Times
+    domain: hindustantimes.com
+    region_scope: national
+    feeds:
+      - url: https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml
+      - url: https://www.hindustantimes.com/feeds/rss/cities/delhi-news/rssfeed.xml
+        location_hint: Delhi
+      - url: https://www.hindustantimes.com/feeds/rss/cities/lucknow-news/rssfeed.xml
+        location_hint: Lucknow, Uttar Pradesh
+      - url: https://www.hindustantimes.com/feeds/rss/cities/chandigarh-news/rssfeed.xml
+        location_hint: Chandigarh
+
+  - name: The Sentinel Assam
+    domain: sentinelassam.com
+    region_scope: Assam
+    feeds:
+      - url: https://www.sentinelassam.com/feed
+        location_hint: Assam
+
+  - name: EastMojo
+    domain: eastmojo.com
+    region_scope: North-East
+    feeds:
+      - url: https://www.eastmojo.com/feed/
+        location_hint: North-East India
+
+  - name: The Times of India
+    domain: timesofindia.indiatimes.com
+    region_scope: national
+    feeds:
+      - url: https://timesofindia.indiatimes.com/rssfeedstopstories.cms
+
+  - name: News18
+    domain: news18.com
+    region_scope: national
+    feeds:
+      - url: https://www.news18.com/rss/india.xml
+
+  - name: India Today
+    domain: indiatoday.in
+    region_scope: national
+    feeds:
+      - url: https://www.indiatoday.in/rss/1206514
+
+  - name: Scroll
+    domain: scroll.in
+    region_scope: national
+    feeds:
+      - url: https://feeds.feedburner.com/ScrollinArticles.rss
+
+  - name: Free Press Journal
+    domain: freepressjournal.in
+    region_scope: Maharashtra / Madhya Pradesh
+    feeds:
+      - url: https://www.freepressjournal.in/stories.rss
+
+  - name: Mid-day
+    domain: mid-day.com
+    region_scope: Mumbai
+    feeds:
+      - url: https://www.mid-day.com/Resources/midday/rss/india-news.xml
+
+  - name: Telangana Today
+    domain: telanganatoday.com
+    region_scope: Telangana
+    feeds:
+      - url: https://telanganatoday.com/feed
+        location_hint: Telangana
+
+  - name: OdishaTV
+    domain: odishatv.in
+    region_scope: Odisha
+    feeds:
+      - url: https://odishatv.in/rss
+        location_hint: Odisha
+
+  - name: Greater Kashmir
+    domain: greaterkashmir.com
+    region_scope: Jammu and Kashmir
+    feeds:
+      - url: https://www.greaterkashmir.com/feed/
+        location_hint: Jammu and Kashmir
+
+  - name: Northeast Now
+    domain: nenow.in
+    region_scope: North-East
+    feeds:
+      - url: https://nenow.in/feed
+        location_hint: North-East India
+
+  - name: The Shillong Times
+    domain: theshillongtimes.com
+    region_scope: Meghalaya
+    feeds:
+      - url: https://theshillongtimes.com/feed/
+        location_hint: Meghalaya
+
+  - name: The Arunachal Times
+    domain: arunachaltimes.in
+    region_scope: Arunachal Pradesh
+    feeds:
+      - url: https://arunachaltimes.in/index.php/feed/
+        location_hint: Arunachal Pradesh
+
+  - name: Nagaland Post
+    domain: nagalandpost.com
+    region_scope: Nagaland
+    feeds:
+      - url: https://nagalandpost.com/feed/
+        location_hint: Nagaland
+
+  - name: Mongabay India
+    domain: india.mongabay.com
+    region_scope: national
+    feeds:
+      - url: https://india.mongabay.com/feed/
+        category_hint: Environment
+
+  - name: The Economic Times
+    domain: economictimes.indiatimes.com
+    region_scope: national
+    feeds:
+      - url: https://economictimes.indiatimes.com/rssfeedstopstories.cms
+        category_hint: Business & Economy
+
+  - name: Mint
+    domain: livemint.com
+    region_scope: national
+    feeds:
+      - url: https://www.livemint.com/rss/news
+        category_hint: Business & Economy
+
+  - name: Sportstar
+    domain: sportstar.thehindu.com
+    region_scope: national
+    feeds:
+      - url: https://sportstar.thehindu.com/cricket/feeder/default.rss
+        category_hint: Sports
+
+google_news:
+  poll_minutes: 120
+  places:
+    - Andhra Pradesh
+    - Arunachal Pradesh
+    - Assam
+    - Bihar
+    - Chhattisgarh
+    - Goa
+    - Gujarat
+    - Haryana
+    - Himachal Pradesh
+    - Jharkhand
+    - Karnataka
+    - Kerala
+    - Madhya Pradesh
+    - Maharashtra
+    - Manipur
+    - Meghalaya
+    - Mizoram
+    - Nagaland
+    - Odisha
+    - Punjab
+    - Rajasthan
+    - Sikkim
+    - Tamil Nadu
+    - Telangana
+    - Tripura
+    - Uttar Pradesh
+    - Uttarakhand
+    - West Bengal
+    - Andaman and Nicobar Islands
+    - Chandigarh
+    - Dadra and Nagar Haveli and Daman and Diu
+    - Delhi
+    - Jammu and Kashmir
+    - Ladakh
+    - Lakshadweep
+    - Puducherry
