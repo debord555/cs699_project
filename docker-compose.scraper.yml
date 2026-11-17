@@ -1,0 +1,14 @@
+services:
+  db:
+    restart: unless-stopped
+
+  scraper:
+    build: ./scraper
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
