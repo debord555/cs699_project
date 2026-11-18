@@ -54,7 +54,9 @@ def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom
                 FROM locations l
                 JOIN article_location_map al ON l.id = al.location_id
                 JOIN articles a ON a.id = al.article_id
-                WHERE l.latitude >= %(lat_min)s AND l.latitude < %(lat_max)s
+                WHERE point(l.longitude, l.latitude) <@ box(point(%(lon_min)s, %(lat_min)s),
+                                            point(%(lon_max)s, %(lat_max)s))
+                    AND l.latitude >= %(lat_min)s AND l.latitude < %(lat_max)s
                     AND l.longitude >= %(lon_min)s AND l.longitude < %(lon_max)s
                     AND a.published_at < %(before)s
             ) t
