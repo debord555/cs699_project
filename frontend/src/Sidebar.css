@@ -32,6 +32,43 @@
   color: #fff;
 }
 
+.search-box {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #ddd;
+  background: #fff;
+}
+
+.search-box input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.search-box input:focus {
+  outline: 2px solid #cf00ff;
+  border-color: transparent;
+}
+
+.search-box button {
+  padding: 6px 10px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.search-box button[type='submit'] {
+  color: #fff;
+  background: #cf00ff;
+  border-color: #cf00ff;
+}
+
 .sidebar-empty {
   padding: 16px;
   color: #777;

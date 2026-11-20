@@ -5,7 +5,7 @@ import './Sidebar.css';
 // components so it survives map moves and nothing is fetched twice.
 const cache = {};
 
-export default function Sidebar({ ids, setHoveredId }) {
+export default function Sidebar({ ids, search, setSearch, setHoveredId }) {
   const listRef = useRef(null);
 
   // The map moved or zoomed, so scroll the list back to the top
@@ -14,18 +14,56 @@ export default function Sidebar({ ids, setHoveredId }) {
   }, [ids]);
 
   return (
-    <aside className="sidebar">
+    <div className="sidebar">
       <header className="sidebar-header">
         <h2>Articles</h2>
         <span className="sidebar-count">{ids.length}</span>
       </header>
-      {ids.length === 0 && <p className="sidebar-empty">No articles in this area.</p>}
+      <SearchBox search={search} setSearch={setSearch} />
+      {ids.length === 0 && (
+        <p className="sidebar-empty">
+          {search ? 'No matching articles in this area.' : 'No articles in this area.'}
+        </p>
+      )}
       <ul className="sidebar-list" ref={listRef}>
         {ids.map((id) => (
           <ArticleEntry key={id} id={id} listRef={listRef} setHoveredId={setHoveredId} />
         ))}
       </ul>
-    </aside>
+    </div>
+  );
+}
+
+// A text box for searching the news. The search runs when the user presses
+// Enter (not on every key press), so the map isn't reloaded for each letter.
+function SearchBox({ search, setSearch }) {
+  const [text, setText] = useState(search);
+
+  const submit = (e) => {
+    e.preventDefault(); // stop the browser from reloading the page
+    setSearch(text.trim());
+  };
+
+  const clear = () => {
+    setText('');
+    setSearch('');
+  };
+
+  return (
+    <form className="search-box" onSubmit={submit}>
+      <input
+        type="search"
+        placeholder='Search by text...'
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <button type="submit">Search</button>
+      {search && (
+        <button type="button" onClick={clear}>
+          Clear
+        </button>
+      )}
+    </form>
   );
 }
 

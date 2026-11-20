@@ -49,7 +49,14 @@ CREATE TABLE articles (
     is_wire         BOOLEAN NOT NULL DEFAULT FALSE,  -- PTI / IANS / ANI copy
     status          TEXT NOT NULL DEFAULT 'new',     -- new -> ready -> (LLM step) llm_done / llm_failed
     fetch_attempts  INT NOT NULL DEFAULT 0,
-    error           TEXT
+    error           TEXT,
+    -- Words of the article for text search, kept up to date by Postgres.
+    -- Weights rank title matches above summary matches, and those above body matches.
+    search_tsv      TSVECTOR GENERATED ALWAYS AS (
+                        setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+                        setweight(to_tsvector('english', coalesce(summary, '')), 'B') ||
+                        setweight(to_tsvector('english', coalesce(body, '')), 'C')
+                    ) STORED
 );
 
 -- One row per mentioned location
@@ -73,6 +80,8 @@ CREATE INDEX idx_articles_status ON articles (status);
 CREATE INDEX idx_articles_published_at ON articles (published_at);
 CREATE INDEX idx_articles_content_hash ON articles (content_hash);
 CREATE INDEX idx_alm_location ON article_location_map (location_id);
+-- Text search: WHERE search_tsv @@ websearch_to_tsquery('english', 'assam floods')
+CREATE INDEX idx_articles_search ON articles USING GIN (search_tsv);
 
 -- Case-insensitive name lookup: WHERE lower(location_name) = lower('Guwahati')
 CREATE INDEX idx_locations_name_lower ON locations (lower(location_name));

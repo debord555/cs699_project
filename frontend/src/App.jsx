@@ -3,7 +3,6 @@ import { MapContainer, TileLayer, useMapEvents, CircleMarker, Popup } from 'reac
 import Sidebar from './Sidebar';
 import TimeControl from './TimeControl';
 
-// Critical: Leaflet tile styling will break without this import
 import 'leaflet/dist/leaflet.css';
 
 // Returns the ids of the articles on screen, closest to the map center first.
@@ -21,7 +20,7 @@ function getVisibleIds(pins, map) {
   return [...new Set(onScreen.map((pin) => pin.id))];
 }
 
-function NewsPins({ pins, date, hoveredId, onPinsLoaded }) {
+function NewsPins({ pins, date, search, hoveredId, onPinsLoaded }) {
   const controller = useRef(null);
 
   const fetchPins = async (map) => {
@@ -42,6 +41,10 @@ function NewsPins({ pins, date, hoveredId, onPinsLoaded }) {
     if (date) {
       params.set('before', date + 'T00:00:00Z');
     }
+    // Only show news matching the search words (if any are entered)
+    if (search) {
+      params.set('q', search);
+    }
     try {
       const res = await fetch(`/api/get_news_ids?${params}`, { signal: controller.current.signal });
       if (res.ok) {
@@ -58,10 +61,10 @@ function NewsPins({ pins, date, hoveredId, onPinsLoaded }) {
     load: () => fetchPins(map),
   });
 
-  // Load the pins again whenever the chosen date changes
+  // Load the pins again whenever the chosen date or the search changes
   useEffect(() => {
     fetchPins(map);
-  }, [date]);
+  }, [date, search]);
 
   // The pins of the article hovered in the sidebar
   const hoveredPins = pins.filter((pin) => pin[0] === hoveredId);
@@ -104,6 +107,8 @@ export default function App() {
   const [visibleIds, setVisibleIds] = useState([]);
   // The chosen date as "YYYY-MM-DD", or "" for today
   const [date, setDate] = useState('');
+  // The submitted search words, or "" to show all news
+  const [search, setSearch] = useState('');
   // The id of the article the mouse is over in the sidebar, or null
   const [hoveredId, setHoveredId] = useState(null);
 
@@ -125,6 +130,7 @@ export default function App() {
           <NewsPins
             pins={pins}
             date={date}
+            search={search}
             hoveredId={hoveredId}
             onPinsLoaded={(newPins, ids) => {
               setPins(newPins);
@@ -134,7 +140,7 @@ export default function App() {
         </MapContainer>
         <TimeControl date={date} setDate={setDate} />
       </div>
-      <Sidebar ids={visibleIds} setHoveredId={setHoveredId} />
+      <Sidebar ids={visibleIds} search={search} setSearch={setSearch} setHoveredId={setHoveredId} />
     </div>
   );
 }

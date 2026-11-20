@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/api/get_news_ids")
-def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom: int, per_cell: int = 5, before: datetime | None = None):
+def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom: int, per_cell: int = 5, before: datetime | None = None, q: str | None = None):
     # Cell size inferred from Leaflet's docs
     cell = 360 / 2**zoom / 4
     # Snap the box outward to cell edges so cells at the screen border are counted in full
@@ -43,8 +43,12 @@ def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom
     lon_max = math.ceil(lon_max / cell) * cell
     if before is None:
         before = datetime.now(timezone.utc)
+    # Text search: only keep articles matching the search words, if any were given.
+    search = ""
+    if q and q.strip():
+        search = "AND a.search_tsv @@ websearch_to_tsquery('english', %(q)s)"
     with pool.connection() as conn:
-        return conn.execute("""
+        return conn.execute(f"""
             SELECT id, latitude, longitude, location_id FROM (
                 SELECT a.id, l.latitude, l.longitude, l.id AS location_id,
                        ROW_NUMBER() OVER (
@@ -59,11 +63,12 @@ def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom
                     AND l.latitude >= %(lat_min)s AND l.latitude < %(lat_max)s
                     AND l.longitude >= %(lon_min)s AND l.longitude < %(lon_max)s
                     AND a.published_at < %(before)s
+                    {search}
             ) t
             WHERE rn <= %(per_cell)s;
             """, {"cell": cell, "lat_min": lat_min, "lat_max": lat_max,
                   "lon_min": lon_min, "lon_max": lon_max, "per_cell": per_cell,
-                  "before": before}).fetchall()
+                  "before": before, "q": q}).fetchall()
 
 @app.get("/api/get_news")
 def getNewsByIds(id: int):
