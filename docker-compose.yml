@@ -28,6 +28,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+  nginx:
+    build: ./frontend                   # builds the React app and serves it with nginx
+    ports:
+      - "127.0.0.1:8080:80"             # open http://localhost:8080
+    depends_on:
+      - backend
   llm:
     build: ./llm
     environment:
