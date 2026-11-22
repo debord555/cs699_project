@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
-import feedparser
 import requests
+from bs4 import BeautifulSoup
 from psycopg.rows import dict_row
 
 from db import get_connection
@@ -32,11 +33,53 @@ SAVE_ARTICLE_SQL = """
 """
 
 
-def published_time(entry):
-    t = entry.get("published_parsed")
-    if t is None:
+def text_of(tag):
+    return tag.get_text(strip=True) if tag else None
+
+
+def parse_date(text):
+    if not text:
         return None
-    return datetime(t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec, tzinfo=timezone.utc)
+    try:
+        when = parsedate_to_datetime(text)
+    except (TypeError, ValueError):
+        try:
+            when = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return when
+
+
+def author_of(item):
+    author = item.find("creator") or item.find("author")
+    if author is None:
+        return None
+    return text_of(author.find("name")) or text_of(author)
+
+
+def read_entries(content):
+    soup = BeautifulSoup(content, "xml")
+    entries = []
+    for item in soup.find_all("item"):
+        media = item.find("content", attrs={"url": True})
+        source = item.find("source")
+        entries.append({
+            "title": text_of(item.find("title")),
+            "link": text_of(item.find("link")),
+            "summary": text_of(item.find("description")),
+            "author": author_of(item),
+            "media_content": [{"url": media["url"]}] if media else [],
+            "tags": [{"term": text_of(c)} for c in item.find_all("category")],
+            "published": parse_date(text_of(item.find("pubDate"))),
+            "source": {"title": text_of(source), "href": source.get("url")} if source else {},
+        })
+    return entries
+
+
+def published_time(entry):
+    return entry.get("published")
 
 
 def image_of(entry):
@@ -127,7 +170,7 @@ def poll_feed(conn, feed):
             return
 
         response.raise_for_status()
-        entries = feedparser.parse(response.content).entries
+        entries = read_entries(response.content)
         if feed["kind"] == "google_news":
             entries = entries[:GOOGLE_NEWS_LIMIT]
 
