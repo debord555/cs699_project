@@ -48,10 +48,64 @@ CREATE TABLE articles (
     content_hash    CHAR(64),                        -- same text on many sites = same hash
     is_wire         BOOLEAN NOT NULL DEFAULT FALSE,  -- PTI / IANS / ANI copy
     status          TEXT NOT NULL DEFAULT 'new',     -- new -> ready -> (LLM step) llm_done / llm_failed
+    category_status TEXT NOT NULL DEFAULT 'new',     -- new -> done / failed (category worker)
     fetch_attempts  INT NOT NULL DEFAULT 0,
-    error           TEXT
+    error           TEXT,
+    -- Words of the article for text search, kept up to date by Postgres.
+    -- Weights rank title matches above summary matches, and those above body matches.
+    search_tsv      TSVECTOR GENERATED ALWAYS AS (
+                        setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+                        setweight(to_tsvector('english', coalesce(summary, '')), 'B') ||
+                        setweight(to_tsvector('english', coalesce(body, '')), 'C')
+                    ) STORED
+);
+
+-- One row per mentioned location
+CREATE TABLE locations (
+    id              BIGSERIAL PRIMARY KEY,
+    location_name   TEXT,
+    latitude        DOUBLE PRECISION CHECK (latitude BETWEEN -90 AND 90),
+    longitude       DOUBLE PRECISION CHECK (longitude BETWEEN -180 AND 180),
+    not_found       BOOLEAN DEFAULT FALSE
+);
+
+-- For many to many mapping between articles and locations
+CREATE TABLE article_location_map (
+    article_id      BIGINT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    location_id     BIGINT NOT NULL REFERENCES locations(id),
+    mention_order   INT,
+    PRIMARY KEY (article_id, location_id)
+);
+
+-- One row per article type (crime, politics, ...)
+CREATE TABLE categories (
+    id      SERIAL PRIMARY KEY,
+    name    TEXT UNIQUE NOT NULL
+);
+
+INSERT INTO categories (name) VALUES
+    ('Politics'), ('Crime'), ('Business & Finance'), ('Education'), ('Health'),
+    ('Sports'), ('Entertainment'), ('Science & Technology'), ('Environment & Weather'),
+    ('Disasters & Accidents'), ('Agriculture'), ('Infrastructure'), ('International'), ('Other');
+
+-- For many to many mapping between articles and categories (an article can have several)
+CREATE TABLE article_category_map (
+    article_id      BIGINT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    category_id     INT NOT NULL REFERENCES categories(id),
+    score           REAL,                            -- classifier confidence, NULL if from a feed/tag hint
+    PRIMARY KEY (article_id, category_id)
 );
 
 CREATE INDEX idx_articles_status ON articles (status);
+CREATE INDEX idx_articles_category_status ON articles (category_status);
+CREATE INDEX idx_acm_category ON article_category_map (category_id);
 CREATE INDEX idx_articles_published_at ON articles (published_at);
 CREATE INDEX idx_articles_content_hash ON articles (content_hash);
+CREATE INDEX idx_alm_location ON article_location_map (location_id);
+-- Text search: WHERE search_tsv @@ websearch_to_tsquery('english', 'assam floods')
+CREATE INDEX idx_articles_search ON articles USING GIN (search_tsv);
+
+-- Case-insensitive name lookup: WHERE lower(location_name) = lower('Guwahati')
+CREATE INDEX idx_locations_name_lower ON locations (lower(location_name));
+-- Spatial lookup: bounding box (point(longitude, latitude) <@ box(...)) and nearest-first (ORDER BY ... <-> point(...))
+CREATE INDEX idx_locations_point ON locations USING GIST (point(longitude, latitude));

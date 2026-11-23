@@ -1,0 +1,218 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+
+\title{NewsRadar: Mid-Term Progress Report}
+\author{Deepjyoti Kakoti \\ Roll No.: 26M0774}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\noindent
+\textbf{Branch:} \texttt{DEEPJYOTI} \\
+\textbf{Repository:} \url{https://github.com/debord555/cs699_project} \\
+\textbf{Module:} AI step (location extraction with a local language model)
+
+\section{Project Description}
+
+NewsRadar is a CS 699 (Software Lab) team project: a web application that
+scrapes news articles, extracts the places each article mentions, and plots
+them on an interactive map. It is built as a three-stage Python pipeline
+(scraping, location and topic mining, then a FastAPI backend with a
+React + Leaflet map) around a shared PostgreSQL + PostGIS database. The
+current version targets Indian news sources and geocodes places within India.
+
+The main features of our application will be:
+
+\begin{itemize}
+    \item News articles collected from multiple sources will be mapped to the locations they discuss, allowing users to explore what is happening across different regions of the world.
+    \item News events from around the world will be represented as interactive points (blips) on a global map. Selecting a point will allow users to view the relevant news articles associated with that location.
+    \item News websites will be continuously scraped to collect and update news data from multiple sources.
+    \item Multiple articles reporting on the same real-world event will be identified and clustered together, preventing duplicate representation of the same event on the map.
+    \item News will be categorized into different categories, including but not limited to Business, Sports, Military, Disasters, Crime, Environment, Technology, and Opportunities.
+    \item Users will be able to filter news based on time and date ranges, allowing them to view recent or historical events.
+    \item Users will be able to zoom into any geographical region and explore the news and events occurring in that area.
+    \item The platform will provide links to the original news articles, allowing users to access the complete information from the respective news sources.
+    \item Users will be able to search for news using text-based queries. The system will identify relevant news articles from across the world and display the corresponding events geographically on the map. For example, a search for "earthquake" would show relevant earthquake-related news from different locations around the world.
+\end{itemize}
+
+\section{My part: the AI step}
+
+To put an article on the map, the system has to know \emph{where} the story
+happens. Articles arrive as plain text, so a language model reads each one and
+lists the places it mentions, with their latitude and longitude. My work in
+this phase was to:
+
+\begin{enumerate}
+  \item set up a language model that runs on our own computer, with one script; and
+  \item write the worker that sends each article to the model and stores the places it finds in the database.
+\end{enumerate}
+
+The worker sits between the scraper, which saves articles, and the map, which
+reads places from the database.
+
+\section{Technology choices}
+
+\begin{center}
+\begin{tabular}{|p{3cm}|p{4cm}|p{7cm}|}
+\hline
+\textbf{Choice} & \textbf{What it is} & \textbf{Why it was chosen} \\
+\hline
+Lemonade Server & A free program that runs language models on a local PC & No cost per request, no internet needed, and article text never leaves our machine. It offers the same interface (API) as OpenAI, so the code would work with a hosted model too. \\
+\hline
+Qwen3-8B (Q4\_K\_M) & An open language model with 8 billion parameters, compressed to about 5\,GB & Small enough to run on a normal GPU, yet good at reading text and returning structured answers such as JSON. \\
+\hline
+Python & A programming language & Same language as the rest of the project; ready-made libraries for databases (\texttt{psycopg}) and web requests (\texttt{requests}). \\
+\hline
+PowerShell & The Windows command shell & Lets the whole model setup run as one script on our Windows machines. \\
+\hline
+\end{tabular}
+\end{center}
+
+\section{Setting up the model}
+
+The script \texttt{scripts/setup\_llm.ps1} prepares the model in one command:
+
+\begin{verbatim}
+powershell -ExecutionPolicy Bypass -File scripts\setup_llm.ps1
+\end{verbatim}
+
+It runs these steps in order and stops with a clear message if one fails:
+
+\begin{enumerate}
+  \item \textbf{Find Lemonade.} Looks for the \texttt{lemonade} program, first on the system path and then in its default install folder.
+  \item \textbf{Start the server.} If the server is not already running, starts it in the background and waits up to 60 seconds for its health check to pass.
+  \item \textbf{Download the model.} Downloads Qwen3-8B (about 5\,GB) only if it is not already on the machine.
+  \item \textbf{Load the model} into memory.
+  \item \textbf{Smoke test.} Asks the model to reply with ``OK'' to confirm the whole chain works.
+  \item \textbf{Print the settings} (\texttt{LLM\_BASE\_URL}, \texttt{LLM\_MODEL}) to copy into the private \texttt{.env} file.
+\end{enumerate}
+
+The script is safe to run again: steps that are already done are skipped. The
+model name and port can be changed with the \texttt{-Model} and \texttt{-Port}
+options. I also added the two LLM settings to \texttt{.env.example}, so every
+teammate knows which values to set.
+
+\section{The location extractor}\label{sec:locate}
+
+\subsection{How it works}
+
+\texttt{llm/locate.py} runs as a loop that never stops:
+
+\begin{enumerate}
+  \item Look for one article that is waiting to be processed: status \texttt{ready} and full text present. If there is none, wait 2 seconds and look again.
+  \item Send the article's text to the model and ask for the places it mentions.
+  \item For each place, check whether it is already in the \texttt{locations} table (ignoring upper/lower case). If not, add it with its coordinates.
+  \item Link the article to each place in the \texttt{article\_location\_map} table, keeping the order in which the places were mentioned.
+  \item Mark the article \texttt{llm\_done}. If the model call failed, mark it \texttt{llm\_failed} and save the error message instead.
+  \item Go back to step 1.
+\end{enumerate}
+
+\subsection{What the model is asked}
+
+The model is told to reply with \emph{only} a JSON list, so the program can read
+the answer directly:
+
+\begin{verbatim}
+[{"name": "Guwahati", "latitude": 26.14, "longitude": 91.73},
+ {"name": "Assam",    "latitude": 26.20, "longitude": 92.94}]
+\end{verbatim}
+
+The temperature is set to 0, so the same article always gives the same answer.
+The prompt ends with \texttt{/no\_think}, which turns off Qwen3's long
+``thinking'' output and makes replies much faster.
+
+\subsection{Key design decisions}
+
+\begin{center}
+\begin{tabular}{|p{5cm}|p{9cm}|}
+\hline
+\textbf{Decision} & \textbf{Reason} \\
+\hline
+Use the article \texttt{status} column to find work & An article with no places would never get a row in \texttt{article\_location\_map}, so checking that table would pick the same article again forever. The status (\texttt{ready} $\rightarrow$ \texttt{llm\_done} / \texttt{llm\_failed}) marks every article as finished exactly once. \\
+\hline
+One database transaction per article & An article's places and its new status are saved together. If the program crashes halfway, nothing is saved and the article is simply tried again. \\
+\hline
+Lock the article while working on it (\texttt{FOR UPDATE SKIP LOCKED}) & Several copies of the worker can run side by side without two of them taking the same article. \\
+\hline
+Clean the model's answer before saving & Small models sometimes add extra text or repeat a place. The worker keeps only the JSON list, drops repeated names, and discards coordinates outside the valid range (latitude $-90$ to $90$, longitude $-180$ to $180$). \\
+\hline
+Reuse existing places & ``Guwahati'' and ``guwahati'' point to the same row, so the map shows one point per place rather than many. \\
+\hline
+Cut very long articles to 12{,}000 characters & Keeps each request within what the model can read at once. \\
+\hline
+Failed articles are marked, not retried forever & One bad article cannot block the queue, and the saved error explains what went wrong. \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection{Settings}
+
+\begin{center}
+\begin{tabular}{|l|l|p{6cm}|}
+\hline
+\textbf{Setting} & \textbf{Value} & \textbf{Meaning} \\
+\hline
+\texttt{LLM\_BASE\_URL} & \texttt{127.0.0.1:13305} & Address of the local model server \\
+\hline
+\texttt{LLM\_MODEL} & Qwen3-8B & Model to use \\
+\hline
+\texttt{LLM\_TIMEOUT} & 300 seconds & Longest wait for one reply from the model \\
+\hline
+\texttt{LLM\_MAX\_BODY\_CHARS} & 12{,}000 & Longest article text sent to the model \\
+\hline
+\texttt{LOCATE\_IDLE\_SECONDS} & 2 seconds & Pause when there is no work \\
+\hline
+\end{tabular}
+\end{center}
+
+\section{Description of the files}
+
+\begin{center}
+\begin{tabular}{|l|p{9cm}|}
+\hline
+\textbf{File} & \textbf{Purpose} \\
+\hline
+\texttt{scripts/setup\_llm.ps1} & Installs, starts, loads and tests the local language model with one command. \\
+\hline
+\texttt{.env.example} & Template settings; I added \texttt{LLM\_BASE\_URL} and \texttt{LLM\_MODEL}. \\
+\hline
+\texttt{llm/locate.py} & The location extractor described in Section~\ref{sec:locate}. \\
+\hline
+\texttt{llm/db.py} & Opens a connection to the database using the private \texttt{.env} settings. \\
+\hline
+\texttt{llm/settings.py} & Timeouts and limits for the extractor. \\
+\hline
+\texttt{llm/requirements.txt} & The three Python libraries the extractor needs, with exact versions. \\
+\hline
+\end{tabular}
+\end{center}
+
+To run the extractor:
+
+\begin{verbatim}
+cd llm
+pip install -r requirements.txt
+python locate.py
+\end{verbatim}
+
+\section{Outcome of this phase}
+
+\begin{itemize}
+  \item A local language model that any teammate can set up and test with one command.
+  \item A working location extractor that turns article text into places with coordinates and links them to the article in the database.
+  \item Safe for several workers at once, and never leaves half-saved results.
+  \item All work is on GitHub (branch \texttt{DEEPJYOTI}).
+\end{itemize}
+
+\section{Next steps}
+
+\begin{itemize}
+  \item Run the extractor on real articles from the scraper and measure how often the places and coordinates are correct.
+  \item Extend the same step to tag each article with a news category.
+\end{itemize}
+
+\end{document}

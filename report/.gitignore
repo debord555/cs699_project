@@ -1,0 +1,75 @@
+# Core LaTeX auxiliary files
+*.aux
+*.lof
+*.log
+*.lot
+*.fls
+*.out
+*.toc
+*.fmt
+*.fot
+*.cb
+*.cb2
+.*.lb
+
+# Intermediate output
+*.dvi
+*.xdv
+*-converted-to.*
+
+# Compiled PDF (uncomment to stop tracking build output;
+# note this also ignores PDF figures)
+# *.pdf
+
+# Bibliography
+*.bbl
+*.bcf
+*.blg
+*-blx.aux
+*-blx.bib
+*.run.xml
+
+# Build tools
+*.fdb_latexmk
+*.synctex
+*.synctex(busy)
+*.synctex.gz
+*.synctex.gz(busy)
+*.pdfsync
+latex.out/
+
+# Packages
+*.nav
+*.snm
+*.vrb
+*.idx
+*.ilg
+*.ind
+*.glo
+*.gls
+*.glg
+*.acn
+*.acr
+*.alg
+*.ist
+*.loa
+*.lol
+*.xdy
+*.maf
+*.mtc
+*.mtc[0-9]*
+*.slf[0-9]*
+*.slt[0-9]*
+*.stc[0-9]*
+_minted*/
+*.pyg
+*.thm
+*.nlo
+*.nls
+*.nlg
+
+# Editor/backup files
+*~
+*.bak
+*.sav
+*.tmp

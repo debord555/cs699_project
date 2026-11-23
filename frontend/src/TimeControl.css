@@ -1,0 +1,51 @@
+/* Sits on top of the map, just below Leaflet's zoom buttons */
+.time-control {
+  position: absolute;
+  top: 80px;
+  left: 10px;
+  z-index: 1000;
+}
+
+/* Looks like the zoom buttons */
+.clock-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+  background: white;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.clock-button:hover {
+  background: #f4f4f4;
+}
+
+/* Purple with a white clock while showing older news */
+.clock-button.active {
+  color: white;
+  background: #cf00ff;
+}
+
+.time-panel {
+  position: absolute;
+  top: 0;
+  left: 44px;
+  width: 200px;
+  padding: 10px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+}
+
+.time-panel p {
+  margin: 0 0 6px;
+}
+
+.time-panel button {
+  margin-left: 6px;
+}
