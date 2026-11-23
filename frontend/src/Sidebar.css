@@ -69,6 +69,48 @@
   border-color: #cf00ff;
 }
 
+/* The category checkboxes, wrapped onto as many rows as needed */
+.category-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #ddd;
+  background: #fff;
+}
+
+/* Each checkbox and its name look like a small rounded tag */
+.category {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.category input {
+  margin: 0;
+}
+
+/* A ticked category is purple, like the pins */
+.category.checked {
+  color: #fff;
+  background: #cf00ff;
+  border-color: #cf00ff;
+}
+
+.category-filter button {
+  padding: 2px 8px;
+  font-size: 12px;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
 .sidebar-empty {
   padding: 16px;
   color: #777;

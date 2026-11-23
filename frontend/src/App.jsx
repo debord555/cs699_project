@@ -20,7 +20,7 @@ function getVisibleIds(pins, map) {
   return [...new Set(onScreen.map((pin) => pin.id))];
 }
 
-function NewsPins({ pins, date, search, hoveredId, onPinsLoaded }) {
+function NewsPins({ pins, date, search, categories, hoveredId, onPinsLoaded }) {
   const controller = useRef(null);
 
   const fetchPins = async (map) => {
@@ -45,6 +45,11 @@ function NewsPins({ pins, date, search, hoveredId, onPinsLoaded }) {
     if (search) {
       params.set('q', search);
     }
+    // Only show news in the ticked categories (if any are ticked).
+    // Each one is added separately: ?category=1&category=4
+    for (const categoryId of categories) {
+      params.append('category', categoryId);
+    }
     try {
       const res = await fetch(`/api/get_news_ids?${params}`, { signal: controller.current.signal });
       if (res.ok) {
@@ -61,10 +66,10 @@ function NewsPins({ pins, date, search, hoveredId, onPinsLoaded }) {
     load: () => fetchPins(map),
   });
 
-  // Load the pins again whenever the chosen date or the search changes
+  // Load the pins again whenever the chosen date, the search or the categories change
   useEffect(() => {
     fetchPins(map);
-  }, [date, search]);
+  }, [date, search, categories]);
 
   // The pins of the article hovered in the sidebar
   const hoveredPins = pins.filter((pin) => pin[0] === hoveredId);
@@ -108,6 +113,8 @@ export default function App() {
   const [date, setDate] = useState('');
   // The submitted search words, or "" to show all news
   const [search, setSearch] = useState('');
+  // The ids of the ticked categories, or [] to show all categories
+  const [categories, setCategories] = useState([]);
   // The id of the article the mouse is over in the sidebar, or null
   const [hoveredId, setHoveredId] = useState(null);
 
@@ -130,6 +137,7 @@ export default function App() {
             pins={pins}
             date={date}
             search={search}
+            categories={categories}
             hoveredId={hoveredId}
             onPinsLoaded={(newPins, ids) => {
               setPins(newPins);
@@ -139,7 +147,14 @@ export default function App() {
         </MapContainer>
         <TimeControl date={date} setDate={setDate} />
       </div>
-      <Sidebar ids={visibleIds} search={search} setSearch={setSearch} setHoveredId={setHoveredId} />
+      <Sidebar
+        ids={visibleIds}
+        search={search}
+        setSearch={setSearch}
+        categories={categories}
+        setCategories={setCategories}
+        setHoveredId={setHoveredId}
+      />
     </div>
   );
 }

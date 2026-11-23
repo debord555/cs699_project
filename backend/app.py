@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from psycopg_pool import ConnectionPool
 import os
 import math
@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/api/get_news_ids")
-def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom: int, per_cell: int = 5, before: datetime | None = None, q: str | None = None):
+def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom: int, per_cell: int = 5, before: datetime | None = None, q: str | None = None, category: list[int] = Query(default=[])):
     # Cell size inferred from Leaflet's docs
     cell = 360 / 2**zoom / 4
     # Snap the box outward to cell edges so cells at the screen border are counted in full
@@ -49,6 +49,13 @@ def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom
     search = ""
     if q and q.strip():
         search = "AND a.search_tsv @@ websearch_to_tsquery('english', %(q)s)"
+    # Category filter: only keep articles that have at least one of the chosen categories.
+    # The URL lists them as ?category=1&category=4
+    category_filter = ""
+    if category:
+        category_filter = """AND EXISTS (SELECT 1 FROM article_category_map ac
+                                         WHERE ac.article_id = a.id
+                                           AND ac.category_id = ANY(%(category)s))"""
     with pool.connection() as conn:
         return conn.execute(f"""
             SELECT id, latitude, longitude, location_id FROM (
@@ -66,11 +73,19 @@ def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom
                     AND l.longitude >= %(lon_min)s AND l.longitude < %(lon_max)s
                     AND a.published_at < %(before)s AND a.published_at > %(after)s
                     {search}
+                    {category_filter}
             ) t
             WHERE rn <= %(per_cell)s;
             """, {"cell": cell, "lat_min": lat_min, "lat_max": lat_max,
                   "lon_min": lon_min, "lon_max": lon_max, "per_cell": per_cell,
-                  "before": before, "after": after, "q": q}).fetchall()
+                  "before": before, "after": after, "q": q,
+                  "category": category}).fetchall()
+
+@app.get("/api/categories")
+def getCategories():
+    # Every category as [id, name], for the filter checkboxes in the sidebar
+    with pool.connection() as conn:
+        return conn.execute("SELECT id, name FROM categories ORDER BY id;").fetchall()
 
 @app.get("/api/get_news")
 def getNewsByIds(id: int):

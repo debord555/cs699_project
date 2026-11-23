@@ -5,7 +5,7 @@ import './Sidebar.css';
 // components so it survives map moves and nothing is fetched twice.
 const cache = {};
 
-export default function Sidebar({ ids, search, setSearch, setHoveredId }) {
+export default function Sidebar({ ids, search, setSearch, categories, setCategories, setHoveredId }) {
   const listRef = useRef(null);
 
   // The map moved or zoomed, so scroll the list back to the top
@@ -19,9 +19,12 @@ export default function Sidebar({ ids, search, setSearch, setHoveredId }) {
         <h2>Articles</h2>
       </header>
       <SearchBox search={search} setSearch={setSearch} />
+      <CategoryFilter categories={categories} setCategories={setCategories} />
       {ids.length === 0 && (
         <p className="sidebar-empty">
-          {search ? 'No matching articles in this area.' : 'No articles in this area.'}
+          {search || categories.length > 0
+            ? 'No matching articles in this area.'
+            : 'No articles in this area.'}
         </p>
       )}
       <ul className="sidebar-list" ref={listRef}>
@@ -63,6 +66,51 @@ function SearchBox({ search, setSearch }) {
         </button>
       )}
     </form>
+  );
+}
+
+// A checkbox for each category. Ticking boxes shows only the news in those
+// categories; with no box ticked, news from every category is shown.
+// `categories` is the list of ticked category ids, such as [1, 4].
+function CategoryFilter({ categories, setCategories }) {
+  // Every category from the backend, as [id, name] pairs
+  const [allCategories, setAllCategories] = useState([]);
+
+  // Download the list of categories once, when the sidebar first appears
+  useEffect(() => {
+    fetch('/api/categories')
+      .then((res) => res.json())
+      .then((rows) => setAllCategories(rows));
+  }, []);
+
+  const toggle = (id) => {
+    if (categories.includes(id)) {
+      // It was ticked, so untick it: keep every id except this one
+      setCategories(categories.filter((c) => c !== id));
+    } else {
+      // It was not ticked, so tick it: a new list with this id added
+      setCategories([...categories, id]);
+    }
+  };
+
+  return (
+    <div className="category-filter">
+      {allCategories.map(([id, name]) => (
+        <label key={id} className={categories.includes(id) ? 'category checked' : 'category'}>
+          <input
+            type="checkbox"
+            checked={categories.includes(id)}
+            onChange={() => toggle(id)}
+          />
+          {name}
+        </label>
+      ))}
+      {categories.length > 0 && (
+        <button type="button" onClick={() => setCategories([])}>
+          Show all
+        </button>
+      )}
+    </div>
   );
 }
 
