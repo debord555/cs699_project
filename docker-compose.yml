@@ -55,6 +55,7 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+      OMP_NUM_THREADS: 12
     restart: unless-stopped
     depends_on:
       db:
@@ -68,6 +69,7 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+      OMP_NUM_THREADS: 4
     volumes:
       - hf-cache:/root/.cache/huggingface   # keep the downloaded model between restarts
     restart: unless-stopped

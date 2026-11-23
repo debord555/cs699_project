@@ -52,7 +52,7 @@ def next_article(conn):
     return conn.execute(
         "SELECT id, body FROM articles "
         "WHERE status = 'ready' AND body IS NOT NULL "
-        "ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED"
+        "ORDER BY published_at DESC NULLS LAST LIMIT 1 FOR UPDATE SKIP LOCKED"
     ).fetchone()
 
 
