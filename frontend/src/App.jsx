@@ -80,7 +80,6 @@ function NewsPins({ pins, date, search, hoveredId, onPinsLoaded }) {
           radius={7}
           pathOptions={{ color: 'white', weight: 1, fillColor: '#cf00ff', fillOpacity: 1.0 }}
         >
-          <Popup>Article #{id}</Popup>
         </CircleMarker>
       ))}
 
