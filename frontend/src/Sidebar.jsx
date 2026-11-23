@@ -17,7 +17,6 @@ export default function Sidebar({ ids, search, setSearch, setHoveredId }) {
     <div className="sidebar">
       <header className="sidebar-header">
         <h2>Articles</h2>
-        <span className="sidebar-count">{ids.length}</span>
       </header>
       <SearchBox search={search} setSearch={setSearch} />
       {ids.length === 0 && (

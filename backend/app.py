@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from psycopg_pool import ConnectionPool
 import os
 import math
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 def split_interval(start, end, n):
     step = (end - start) / n
@@ -43,6 +43,8 @@ def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom
     lon_max = math.ceil(lon_max / cell) * cell
     if before is None:
         before = datetime.now(timezone.utc)
+    window = 7 * (2 ** max(0, zoom - 5))
+    after = before - timedelta(days=window)
     # Text search: only keep articles matching the search words, if any were given.
     search = ""
     if q and q.strip():
@@ -62,13 +64,13 @@ def getNews(lat_min: float, lon_min: float, lat_max: float, lon_max: float, zoom
                                             point(%(lon_max)s, %(lat_max)s))
                     AND l.latitude >= %(lat_min)s AND l.latitude < %(lat_max)s
                     AND l.longitude >= %(lon_min)s AND l.longitude < %(lon_max)s
-                    AND a.published_at < %(before)s
+                    AND a.published_at < %(before)s AND a.published_at > %(after)s
                     {search}
             ) t
             WHERE rn <= %(per_cell)s;
             """, {"cell": cell, "lat_min": lat_min, "lat_max": lat_max,
                   "lon_min": lon_min, "lon_max": lon_max, "per_cell": per_cell,
-                  "before": before, "q": q}).fetchall()
+                  "before": before, "after": after, "q": q}).fetchall()
 
 @app.get("/api/get_news")
 def getNewsByIds(id: int):
