@@ -15,6 +15,19 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+  scraper:
+    build: ./scraper
+    command: ["sh", "-c", "python load_sources.py && python run.py"]
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
   backend:
     build: ./backend
     environment:
