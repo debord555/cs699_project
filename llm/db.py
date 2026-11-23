@@ -13,6 +13,7 @@ def get_connection():
         dbname=os.getenv("DB_NAME", "newsradar"),
         user=os.getenv("DB_USER", "newsradar"),
         password=os.getenv("DB_PASSWORD"),
+        autocommit=True,
     )
 
 
