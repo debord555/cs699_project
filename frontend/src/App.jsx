@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { MapContainer, TileLayer, useMapEvents, CircleMarker, Popup } from 'react-leaflet';
 import Sidebar from './Sidebar';
 import TimeControl from './TimeControl';
+import L from 'leaflet';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -20,7 +21,7 @@ function getVisibleIds(pins, map) {
   return [...new Set(onScreen.map((pin) => pin.id))];
 }
 
-function NewsPins({ pins, date, search, categories, hoveredId, onPinsLoaded }) {
+function NewsPins({ pins, date, search, categories, hoveredId, onPinsLoaded, selectedLocId, onSelectedLocId }) {
   const controller = useRef(null);
 
   const fetchPins = async (map) => {
@@ -64,6 +65,7 @@ function NewsPins({ pins, date, search, categories, hoveredId, onPinsLoaded }) {
   const map = useMapEvents({
     moveend: () => fetchPins(map),
     load: () => fetchPins(map),
+    click: () => onSelectedLocId(null)
   });
 
   // Load the pins again whenever the chosen date, the search or the categories change
@@ -73,6 +75,9 @@ function NewsPins({ pins, date, search, categories, hoveredId, onPinsLoaded }) {
 
   // The pins of the article hovered in the sidebar
   const hoveredPins = pins.filter((pin) => pin[0] === hoveredId);
+
+  // Selected pins (actually it is always list of one)
+  const selectedPins = pins.filter((pin) => pin[3] === selectedLocId);
 
   // Each pin is [article id, lat, lon, location id]. An article can have two
   // locations at the same spot, so the key uses the location id to stay unique.
@@ -84,6 +89,12 @@ function NewsPins({ pins, date, search, categories, hoveredId, onPinsLoaded }) {
           center={[lat, lon]}
           radius={7}
           pathOptions={{ color: 'white', weight: 1, fillColor: '#cf00ff', fillOpacity: 1.0 }}
+          eventHandlers={{
+            click: (e) => {
+              L.DomEvent.stopPropagation(e);
+              onSelectedLocId(locationId);
+            }
+          }}
         >
         </CircleMarker>
       ))}
@@ -96,6 +107,15 @@ function NewsPins({ pins, date, search, categories, hoveredId, onPinsLoaded }) {
           center={[lat, lon]}
           radius={11}
           pathOptions={{ color: 'black', weight: 2, fillColor: '#ffcc00', fillOpacity: 1.0 }}
+        />
+      ))}
+      {/* To draw the selected pin (user clicked on this) */}
+      {selectedPins.map(([id, lat, lon, locationId]) => (
+        <CircleMarker
+          key={`hovered-${id}-${locationId}`}
+          center={[lat, lon]}
+          radius={11}
+          pathOptions={{ color: 'black', weight: 3, fillOpacity: 0 }}
         />
       ))}
     </>
@@ -117,6 +137,8 @@ export default function App() {
   const [categories, setCategories] = useState([]);
   // The id of the article the mouse is over in the sidebar, or null
   const [hoveredId, setHoveredId] = useState(null);
+  // The location id of the article clicked on
+  const [selectedLocId, setSelectedLocId] = useState(null);
 
   return (
     <div style={{ height: '100vh', width: '100vw', display: 'flex' }}>
@@ -139,6 +161,8 @@ export default function App() {
             search={search}
             categories={categories}
             hoveredId={hoveredId}
+            selectedLocId={selectedLocId}
+            onSelectedLocId={setSelectedLocId}
             onPinsLoaded={(newPins, ids) => {
               setPins(newPins);
               setVisibleIds(ids);
@@ -148,7 +172,9 @@ export default function App() {
         <TimeControl date={date} setDate={setDate} />
       </div>
       <Sidebar
-        ids={visibleIds}
+        ids={selectedLocId != null
+          ? pins.filter((pin) => pin[3] === selectedLocId).map((pin) => pin[0])
+          : visibleIds}
         search={search}
         setSearch={setSearch}
         categories={categories}
